@@ -4,6 +4,7 @@ import json
 import uuid
 import threading
 from utils import serialize_message, deserialize_message
+from role_manager import RoleManager
 
 class AllocatorAgent:
     def __init__(self, allocator_id, host='localhost'):
@@ -15,8 +16,10 @@ class AllocatorAgent:
 
         # Очередь для получения задач рендеринга
         self.channel.queue_declare(queue='allocator_queue')
+        self.channel.queue_declare(queue='allocator_info_queue')
         self.channel.basic_qos(prefetch_count=1)
         self.channel.basic_consume(queue='allocator_queue', on_message_callback=self.on_request)
+        self.channel.basic_consume(queue='allocator_info_queue', on_message_callback=self.roleassign)
 
     def on_request(self, ch, method, properties, body):
         task = deserialize_message(body)
@@ -71,6 +74,13 @@ class AllocatorAgent:
     def start(self):
         print(f"Allocator {self.allocator_id} запущен и ожидает задач.")
         self.channel.start_consuming()
+
+    def roleassign(self, ch, method, properties, body):
+        message = deserialize_message(body)
+        text = message.get('message')
+        if text == 'agent_type':
+            RoleManager.assign_role(user_id=message.get('agent_id'), role=message.get('agent_type'))
+
 
 if __name__ == "__main__":
     import sys

@@ -43,9 +43,13 @@ class CentralServer:
             for role in roles:
                 self.role_manager.remove_role(user_id, role)
             response = {'status': 'disconnected'}
+        elif action == 'get_status':
+            print('принял')
+            response = {'sys_status': 'feeling good man'}
         else:
             response = {'status': 'unknown_action'}
 
+        print(f"Отправляем ответ в очередь: {properties.reply_to}")
         ch.basic_publish(
             exchange='',
             routing_key=properties.reply_to,

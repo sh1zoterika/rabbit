@@ -51,6 +51,10 @@ class CustomerAgent:
         try:
             self.send_request({'task_id': self.user_id})
             self.listen_for_responses()
+            agent_info = {'agent_id': self.user_id, 'agent_type': 'C', 'message': 'new_agent'}
+            self.channel.queue_declare(queue='allocator_info_queue')
+            self.channel.basic_publish(exchange='', routing_key='allocator_info_queue',
+                                       body=serialize_message(agent_info))
         except KeyboardInterrupt:
             print("Отключение пользователя.")
         finally:

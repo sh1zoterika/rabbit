@@ -12,6 +12,7 @@ class RendererAgent:
             self.channel = self.connection.channel()
             # Очередь для получения задач рендеринга
             self.channel.queue_declare(queue='render_queue')
+            self.channel.queue_declare(queue='info_queue')
         except pika.exceptions.AMQPConnectionError as e:
             print(f"Ошибка подключения к RabbitMQ: {e}")
             raise
@@ -64,6 +65,9 @@ class RendererAgent:
     def start(self):
         print(f"Исполнитель {self.renderer_id} готов к получению задач.")
         self.send_status_update('active')
+        agent_info = {'agent_id': self.user_id, 'agent_type': 'C', 'message': 'new_agent'}
+        self.channel.queue_declare(queue='allocator_info_queue')
+        self.channel.basic_publish(exchange='', routing_key='allocator_info_queue', body=serialize_message(agent_info))
         try:
             self.channel.start_consuming()
         except pika.exceptions.AMQPConnectionError as e:
