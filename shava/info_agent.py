@@ -45,8 +45,14 @@ class InfoAgent:
         """Обновление состояния системы на основе сообщения от агентов"""
         agent_id = message["agent_id"]
         state = message["state"]
-        self.agents[agent_id] = state
-        print(f"Состояние агента {agent_id} обновлено: {state}")
+        role = message.get('role'),
+        user_id = message.get('user_id')
+        self.agents[agent_id] = {
+            'state': state,
+            'role': role,
+            'user_id': user_id
+        }
+        print(f"Состояние агента {agent_id} обновлено: {state}, роль: {role}, user_id: {user_id}")
 
         # Уведомление других агентов об изменении состояния
         self.notify_agents({"type": "state_update", "agent_id": agent_id, "state": state})

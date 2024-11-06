@@ -1,9 +1,13 @@
+from xml.sax.handler import property_lexical_handler
+
 import pika
 import json
 
 class AllocatorAgent:
-    def __init__(self, agent_name):
+    def __init__(self, agent_name, role, user_id):
         self.agent_name = agent_name
+        self.role = role
+        self.user_id = user_id
 
         # Соединение с RabbitMQ
         self.connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
@@ -26,17 +30,19 @@ class AllocatorAgent:
         self.send_status_update("connect")
 
     def send_status_update(self, status):
-        """Отправка сигнала о статусе (подклбчение/отключение) на центральный сервер"""
+        """Отправка сигнала о статусе (подключение/отключение) на центральный сервер"""
         message = {
             'agent_name': self.agent_name,
-            'status': status
+            'status': status,
+            'role': self.role,
+            'user_id': self.user_id
         }
         self.channel.basic_publish(
             exchange='',
             routing_key='central_queue',
             body=json.dumps(message)
         )
-        print(f"Сигнал {status} отправлен для агента {self.agent_name}")
+        print(f"Сигнал {status} отправлен для агента {self.agent_name} с ролью {self.role} и user_id {self.user_id}")
 
     def on_request(self, ch, method, properties, body):
         print("Получен запрос:", body)

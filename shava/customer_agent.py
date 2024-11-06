@@ -22,6 +22,7 @@ class CustomerAgent:
     def send_request(self):
         message = {
             'user_id': 'customer_1',
+            'role': 'customer',
             'model_link': 'example_model_link',
             'render_config': {'quality': 'high'}
         }

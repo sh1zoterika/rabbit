@@ -18,14 +18,18 @@ class CentralServer:
     def on_request(self, ch, method, properties, body):
         message = deserialize_message(body)
         action = message.get('action')
+        role = message.get('role')
+        user_id = message.get('user_id')
 
         response = {}
         if action == 'connect':
             agent_name = message.get('agent_name')
-            print(f"Центральный сервер: Агент {agent_name} подключился.")
+            print(f"Центральный сервер: Агент {agent_name} подключился с ролью {role} и user_id {user_id}")
             response = {
                 'status': 'connected',
-                'message': f'Agent {agent_name} connected successfully'
+                'message': f'Agent {agent_name} connected successfully',
+                'role': role,
+                'user_id': user_id
             }
         elif action == 'disconnect':
             agent_name = message.get('agent_name')

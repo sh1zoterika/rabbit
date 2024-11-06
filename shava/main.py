@@ -6,8 +6,8 @@ from info_agent import InfoAgent
 from renderer_agent import RendererAgent
 
 
-def run_allocator(agent_id):
-    agent = AllocatorAgent(agent_id)
+def run_allocator(agent_id, role, user_id):
+    agent = AllocatorAgent(agent_id, role, user_id)
     agent.start()
 
 
@@ -38,11 +38,15 @@ if __name__ == "__main__":
     i_id = input('Введите ID инфоагента: ')
     r_id = input('Введите ID агента-рендерера: ')
 
+    allocator_role = 'allocator'
+    allocator_user_id = 'allocator_user_1'
+
+    # Создание и запуск потоков с передачей всех аргументов в функцию run_allocator
     threads = [
         threading.Thread(target=run_central_server),
         threading.Thread(target=run_info_agent, args=(i_id,)),
         threading.Thread(target=run_renderer, args=(r_id,)),
-        threading.Thread(target=run_allocator, args=(a_id,)),
+        threading.Thread(target=run_allocator, args=(a_id, allocator_role, allocator_user_id)),
         threading.Thread(target=run_customer, args=(c_id,))
     ]
 
