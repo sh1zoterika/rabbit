@@ -4,21 +4,14 @@ import pika
 import json
 
 class AllocatorAgent:
-    def __init__(self, agent_name, role, user_id):
+    def __init__(self, agent_name):
         self.agent_name = agent_name
-        self.role = role
-        self.user_id = user_id
+        self.role = 'A'
+        self.user_id = 'user_id'
 
         # Соединение с RabbitMQ
         self.connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
         self.channel = self.connection.channel()
-
-        # Удаляем существующую очередь, если она есть
-        try:
-            self.channel.queue_delete(queue='response_queue')
-            print("Очередь 'response_queue' была удалена.")
-        except pika.exceptions.ChannelClosedByBroker:
-            print("Очередь 'response_queue' не существует или уже удалена.")
 
         # Создаем новую очередь с нужными параметрами
         self.channel.queue_declare(queue='response_queue', durable=True)
@@ -27,7 +20,14 @@ class AllocatorAgent:
         self.channel.queue_declare(queue='task_queue', durable=True)
 
         # Отправка сигнала подключения
-        self.send_status_update("connect")
+        self.send_status_update("active")
+
+        # Удаляем существующую очередь, если она есть
+        '''try:
+            self.channel.queue_delete(queue='response_queue')
+            print("Очередь 'response_queue' была удалена.")
+        except pika.exceptions.ChannelClosedByBroker:
+            print("Очередь 'response_queue' не существует или уже удалена.")'''
 
     def send_status_update(self, status):
         """Отправка сигнала о статусе (подключение/отключение) на центральный сервер"""
@@ -35,11 +35,11 @@ class AllocatorAgent:
             'agent_name': self.agent_name,
             'status': status,
             'role': self.role,
-            'user_id': self.user_id
+            'type': "state_update"
         }
         self.channel.basic_publish(
             exchange='',
-            routing_key='central_queue',
+            routing_key='info_queue',
             body=json.dumps(message)
         )
         print(f"Сигнал {status} отправлен для агента {self.agent_name} с ролью {self.role} и user_id {self.user_id}")

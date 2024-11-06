@@ -3,8 +3,10 @@ import json
 import pika
 from utils import serialize_message, deserialize_message
 
+
 class InfoAgent:
     def __init__(self, agent_id, host='localhost'):
+        self.role = 'I'
         self.agent_id = agent_id
         self.state = {}  # Хранение состояния системы
         self.agents = {}  # Хранение информации об агентах
@@ -28,13 +30,46 @@ class InfoAgent:
             if message.get("type") == "state_update":
                 self.update_state(message)
             elif message.get("type") == "activity_check":
-                self.check_activity(message)
+                """Периодическая проверка активности агентов"""
+                agent_id = message["agent_id"]
+                if agent_id not in self.agents or self.agents[agent_id] != "active":
+                    print(f"Агент {agent_id} не активен, уведомляем центральный сервер.")
+                    result = {"type": "agent_inactive", "agent_id": agent_id}
+                    self.notify_server(result)
+                    ch.basic_publish(
+                        exchange='',
+                        routing_key=properties.reply_to,
+                        properties=pika.BasicProperties(correlation_id=properties.correlation_id),
+                        body=json.dumps(result)
+                    )
             elif message.get("type") == "role_change":
-                self.change_role(message)
+                agent_id = message["agent_id"]
+                new_role = message["new_role"]
+                self.agents[agent_id] = new_role
+                print(f"Роль агента {agent_id} изменена на {new_role}")
+                result = {"type": "role_changed", "agent_id": agent_id, "new_role": new_role}
+                self.notify_agents(result)
+                ch.basic_publish(
+                    exchange='',
+                    routing_key=properties.reply_to,
+                    properties=pika.BasicProperties(correlation_id=properties.correlation_id),
+                    body=json.dumps(result)
+                )
             elif message.get('type') == 'get_sys_info':
-                self.sys_info()
+                ch.basic_publish(
+                    exchange='',
+                    routing_key=properties.reply_to,
+                    properties=pika.BasicProperties(correlation_id=properties.correlation_id),
+                    body=json.dumps(self.sys_status)
+                )
             elif message.get('type') == 'get_agents':
-                self.agents_info()
+                print(self.agents)
+                ch.basic_publish(
+                    exchange='',
+                    routing_key=properties.reply_to,
+                    properties=pika.BasicProperties(correlation_id=properties.correlation_id),
+                    body=json.dumps(self.agents)
+                )
 
             ch.basic_ack(delivery_tag=method.delivery_tag)
         except Exception as e:
@@ -43,34 +78,20 @@ class InfoAgent:
 
     def update_state(self, message):
         """Обновление состояния системы на основе сообщения от агентов"""
-        agent_id = message["agent_id"]
-        state = message["state"]
+        print('принял коннект')
+        agent_id = message["agent_name"]
+        state = message["status"]
         role = message.get('role'),
-        user_id = message.get('user_id')
         self.agents[agent_id] = {
             'state': state,
             'role': role,
-            'user_id': user_id
+            'user_id': agent_id
         }
-        print(f"Состояние агента {agent_id} обновлено: {state}, роль: {role}, user_id: {user_id}")
+
+        print(f"Состояние агента {agent_id} обновлено: {state}, роль: {role}, user_id: {agent_id}")
 
         # Уведомление других агентов об изменении состояния
         self.notify_agents({"type": "state_update", "agent_id": agent_id, "state": state})
-
-    def check_activity(self, message):
-        """Периодическая проверка активности агентов"""
-        agent_id = message["agent_id"]
-        if agent_id not in self.agents or self.agents[agent_id] != "active":
-            print(f"Агент {agent_id} не активен, уведомляем центральный сервер.")
-            self.notify_server({"type": "agent_inactive", "agent_id": agent_id})
-
-    def change_role(self, message):
-        """Изменение ролей агента"""
-        agent_id = message["agent_id"]
-        new_role = message["new_role"]
-        self.agents[agent_id] = new_role
-        print(f"Роль агента {agent_id} изменена на {new_role}")
-        self.notify_agents({"type": "role_changed", "agent_id": agent_id, "new_role": new_role})
 
     def notify_agents(self, message):
         """Уведомление других агентов"""
@@ -78,7 +99,7 @@ class InfoAgent:
             self.channel.basic_publish(
                 exchange='',
                 routing_key=agent,
-                body=serialize_message(message)
+                body=json.dumps(message)
             )
 
     def notify_server(self, message):
@@ -86,14 +107,23 @@ class InfoAgent:
         self.channel.basic_publish(
             exchange='',
             routing_key='central_queue',
-            body=serialize_message(message)
+            body=json.dumps(message)
         )
 
-    def sys_info(self):
-        print(f'Состояние системы:{self.sys_status}')
-
-    def agents_info(self):
-        print(self.agents)
+    def send_status_update(self, status):
+        """Отправка сигнала о статусе (подключение/отключение) на центральный сервер"""
+        message = {
+            'agent_name': self.agent_id,
+            'status': status,
+            'role': self.role,
+            'type': "state_update"
+        }
+        self.channel.basic_publish(
+            exchange='',
+            routing_key='info_queue',
+            body=json.dumps(message)
+        )
+        print(f"Сигнал {status} отправлен для агента {self.agent_id} с ролью {self.role} и user_id {self.agent_id}")
 
     def start(self):
         self.channel.basic_consume(queue='info_queue', on_message_callback=self.on_message)

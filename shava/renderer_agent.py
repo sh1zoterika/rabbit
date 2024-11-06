@@ -1,13 +1,16 @@
 import pika
 from utils import serialize_message, deserialize_message
+import json
 
 class RendererAgent:
     def __init__(self, renderer_id, host='localhost'):
+        self.role = 'R'
         self.renderer_id = renderer_id
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(host))
         self.channel = self.connection.channel()
         self.channel.queue_declare(queue='renderer_queue')  # Очередь для получения задач от allocator
         self.channel.queue_declare(queue='allocator_response_queue')  # Очередь для отправки ответа в allocator
+        self.send_status_update('active')
 
     def process_task(self, ch, method, properties, body):
         """Обработка задачи от allocator и отправка результата обратно"""
@@ -31,6 +34,21 @@ class RendererAgent:
         )
 
         ch.basic_ack(delivery_tag=method.delivery_tag)
+
+    def send_status_update(self, status):
+        """Отправка сигнала о статусе (подключение/отключение) на центральный сервер"""
+        message = {
+            'agent_name': self.renderer_id,
+            'status': status,
+            'role': self.role,
+            'type': "state_update"
+        }
+        self.channel.basic_publish(
+            exchange='',
+            routing_key='info_queue',
+            body=json.dumps(message)
+        )
+        print(f"Сигнал {status} отправлен для агента {self.renderer_id} с ролью {self.role} и user_id {self.renderer_id}")
 
     def start(self):
         """Запуск исполнителя для обработки задач"""

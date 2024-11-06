@@ -5,7 +5,7 @@ import time
 class CustomerAgent:
     def __init__(self, agent_name):
         self.agent_name = agent_name
-
+        self.role = 'C'
         # Соединение с RabbitMQ
         self.connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
         self.channel = self.connection.channel()
@@ -18,6 +18,8 @@ class CustomerAgent:
 
         # Переменная для хранения correlation_id
         self.corr_id = None
+
+        self.send_status_update('active')
 
     def send_request(self):
         message = {
@@ -58,6 +60,21 @@ class CustomerAgent:
         print(f"Агент {self.agent_name} ожидает ответов.")
         self.channel.basic_consume(queue='response_queue', on_message_callback=self.on_response, auto_ack=True)
         self.channel.start_consuming()
+
+    def send_status_update(self, status):
+        """Отправка сигнала о статусе (подключение/отключение) на центральный сервер"""
+        message = {
+            'agent_name': self.agent_name,
+            'status': status,
+            'role': self.role,
+            'type': "state_update"
+        }
+        self.channel.basic_publish(
+            exchange='',
+            routing_key='info_queue',
+            body=json.dumps(message)
+        )
+        print(f"Сигнал {status} отправлен для агента {self.agent_name} с ролью {self.role} и user_id {self.agent_name}")
 
 
 if __name__ == "__main__":
