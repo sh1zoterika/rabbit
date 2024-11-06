@@ -22,6 +22,22 @@ class AllocatorAgent:
         # Декларация очереди для получения запроса
         self.channel.queue_declare(queue='task_queue', durable=True)
 
+        # Отправка сигнала подключения
+        self.send_status_update("connect")
+
+    def send_status_update(self, status):
+        """Отправка сигнала о статусе (подклбчение/отключение) на центральный сервер"""
+        message = {
+            'agent_name': self.agent_name,
+            'status': status
+        }
+        self.channel.basic_publish(
+            exchange='',
+            routing_key='central_queue',
+            body=json.dumps(message)
+        )
+        print(f"Сигнал {status} отправлен для агента {self.agent_name}")
+
     def on_request(self, ch, method, properties, body):
         print("Получен запрос:", body)
         task = json.loads(body)
@@ -49,9 +65,14 @@ class AllocatorAgent:
     def start(self):
         # Ожидание запросов
         print(f"Агент {self.agent_name} запущен и ожидает задачи.")
-        self.channel.basic_consume(queue='task_queue', on_message_callback=self.on_request, auto_ack=True)
-        self.channel.start_consuming()
-
+        try:
+            self.channel.basic_consume(queue='task_queue', on_message_callback=self.on_request, auto_ack=True)
+            self.channel.start_consuming()
+        except KeyboardInterrupt:
+            # Отправка сигнала отключения
+            self.send_status_update("disconnect")
+            self.connection.close()
+            print("Соединение закрыто")
 
 if __name__ == "__main__":
     # Создаем экземпляр AllocatorAgent и начинаем ожидать задачи
