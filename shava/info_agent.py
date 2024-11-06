@@ -1,3 +1,5 @@
+import json
+
 import pika
 from utils import serialize_message, deserialize_message
 
@@ -18,7 +20,7 @@ class InfoAgent:
     def on_message(self, ch, method, properties, body):
         """Обработка входящих сообщений от других агентов"""
         try:
-            message = deserialize_message(body)
+            message = json.loads(body)
             print(f"InfoAgent {self.agent_id} получил сообщение: {message}")
 
             # Обработка типов сообщений и обновление состояния
