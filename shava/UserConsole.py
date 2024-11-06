@@ -16,7 +16,7 @@ class UserConsole:
 
     def send_request(self, message):
         """Отправка запроса в очередь info_queue"""
-        test = {'type':"state_update", 'agent_id':'I', 'state':'active'}
+        test = {'type':"get_agents", 'agent_id':'I', 'state':'active'}
         self.channel.basic_publish(
             exchange='',
             routing_key='info_queue',

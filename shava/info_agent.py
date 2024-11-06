@@ -8,6 +8,7 @@ class InfoAgent:
         self.agent_id = agent_id
         self.state = {}  # Хранение состояния системы
         self.agents = {}  # Хранение информации об агентах
+        self.sys_status = 'ok'
         try:
             self.connection = pika.BlockingConnection(pika.ConnectionParameters(host))
             self.channel = self.connection.channel()
@@ -30,6 +31,10 @@ class InfoAgent:
                 self.check_activity(message)
             elif message.get("type") == "role_change":
                 self.change_role(message)
+            elif message.get('type') == 'get_sys_info':
+                self.sys_info()
+            elif message.get('type') == 'get_agents':
+                self.agents_info()
 
             ch.basic_ack(delivery_tag=method.delivery_tag)
         except Exception as e:
@@ -78,10 +83,17 @@ class InfoAgent:
             body=serialize_message(message)
         )
 
+    def sys_info(self):
+        print(f'Состояние системы:{self.sys_status}')
+
+    def agents_info(self):
+        print(self.agents)
+
     def start(self):
         self.channel.basic_consume(queue='info_queue', on_message_callback=self.on_message)
         print("InfoAgent ожидает сообщений.")
         self.channel.start_consuming()
+
 
 if __name__ == "__main__":
     agent = InfoAgent(agent_id="info_agent_1")
